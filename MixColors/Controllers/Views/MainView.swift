@@ -16,15 +16,15 @@ final class MainView: UIView {
 	
 	lazy var collectionView: UICollectionView = {
 		let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-		collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "cell")
+		collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "Cell")
+		collectionView.register(NewColorCell.self, forCellWithReuseIdentifier: "Cell2")
 		return collectionView
 	}()
 	
-	private lazy var viewColor: UIView = {
+	lazy var viewColor: UIView = {
 		let view = UIView()
 		view.clipsToBounds = true
 		view.layer.cornerRadius = 10
-		view.backgroundColor = .cyan
 		return view
 	}()
 	
