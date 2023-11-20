@@ -31,12 +31,9 @@ class MainViewController: UIViewController {
 	private func presentColorPicker(cellColor: UIColor) {
 		let colorPicker = UIColorPickerViewController()
 		colorPicker.title = "Select Color"
-//		colorPicker.supportsAlpha = false
 		colorPicker.delegate = self
 		colorPicker.selectedColor = cellColor
 		colorPicker.modalPresentationStyle = .popover
-//		colorPicker.popoverPresentationController?.sourceItem = self.navigationItem.rightBarButtonItem
-//		self.navigationController?.pushViewController(colorPicker, animated: true)
 		self.present(colorPicker, animated: true)
 	}
 	
@@ -81,13 +78,18 @@ class MainViewController: UIViewController {
 	}
 	
 	private func alertController(cell: UICollectionViewCell) {
-		let alert = UIAlertController(title: "Delete", message: "Do you want to delete this cell?", preferredStyle: .actionSheet)
+		let alert = UIAlertController(title: "", message: "Do you want to delete this color?", preferredStyle: .actionSheet)
 		let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
 		let deleteAction = UIAlertAction(title: "Delete", style: .default) { _ in
-			if let indexPath = self.mainView.collectionView.indexPath(for: cell) {
-				self.array.remove(at: indexPath.row)
-				self.mainView.collectionView.deleteItems(at: [indexPath])
-				self.setViewColor()
+			guard let indexPath = self.mainView.collectionView.indexPath(for: cell) else { return }
+			self.array.remove(at: indexPath.row)
+			self.mainView.collectionView.deleteItems(at: [indexPath])
+			self.setViewColor()
+			
+			if self.array.count < 10 {
+				let lastIndexPath = IndexPath(item: self.array.count, section: 0)
+				let lastCell = self.mainView.collectionView.cellForItem(at: lastIndexPath) as? NewColorCell
+				lastCell?.isHidden = false
 			}
 		}
 		alert.addAction(cancelAction)
