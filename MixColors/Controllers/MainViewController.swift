@@ -9,9 +9,9 @@ import UIKit
 
 class MainViewController: UIViewController {
 	
-	private var array = [UIColor.redBase, UIColor.blueBase]
+	private var colors = [UIColor.redBase, UIColor.blueBase]
 	private var selectedCellIndexPath: IndexPath?
-
+	
 	private let mainView = MainView()
 	
 	// MARK: - LifeCycle
@@ -21,18 +21,18 @@ class MainViewController: UIViewController {
 		addSubViews()
 		setupConstraints()
 		setDelegateAndDatasource()
-		setViewColor()
+		updateViewColor()
     }
 	
 	override func viewWillLayoutSubviews() {
 		mainView.collectionView.reloadData()
 	}
 	
-	private func presentColorPicker(cellColor: UIColor) {
+	private func presentColorPicker(indexPath: IndexPath) {
 		let colorPicker = UIColorPickerViewController()
 		colorPicker.title = "Select Color"
 		colorPicker.delegate = self
-		colorPicker.selectedColor = cellColor
+		colorPicker.selectedColor = colors[indexPath.row]
 		colorPicker.modalPresentationStyle = .popover
 		self.present(colorPicker, animated: true)
 	}
@@ -63,51 +63,55 @@ class MainViewController: UIViewController {
 		return UIColor(red: blendedRed, green: blendedGreen, blue: blendedBlue, alpha: blendedAlpha)
 	}
 	
-	private func setViewColor() {
-		mainView.viewColor.backgroundColor = blendColors(colors: array)
+	private func updateViewColor() {
+		mainView.viewColor.backgroundColor = blendColors(colors: colors)
 	}
 	
 	@objc private func longPressAction(_ gestureRecognizer: UILongPressGestureRecognizer) {
 		switch gestureRecognizer.state {
 		case .began:
-			guard let cell = gestureRecognizer.view as? UICollectionViewCell else { return }
-			alertController(cell: cell)
+			guard let cell = gestureRecognizer.view as? UICollectionViewCell,
+				  let indexPath = mainView.collectionView.indexPath(for: cell) else { return }
+			showAlertController(with: indexPath)
 		default:
 			break
 		}
 	}
 	
-	private func alertController(cell: UICollectionViewCell) {
+	private func showAlertController(with indexPath: IndexPath) {
 		let alert = UIAlertController(title: "", message: "Do you want to delete this color?", preferredStyle: .actionSheet)
 		let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
 		let deleteAction = UIAlertAction(title: "Delete", style: .default) { _ in
-			guard let indexPath = self.mainView.collectionView.indexPath(for: cell) else { return }
-			self.array.remove(at: indexPath.row)
-			self.mainView.collectionView.deleteItems(at: [indexPath])
-			self.setViewColor()
-			
-			if self.array.count < 10 {
-				let lastIndexPath = IndexPath(item: self.array.count, section: 0)
-				let lastCell = self.mainView.collectionView.cellForItem(at: lastIndexPath) as? NewColorCell
-				lastCell?.isHidden = false
-			}
+			self.removeColor(with: indexPath)
 		}
 		alert.addAction(cancelAction)
 		alert.addAction(deleteAction)
 		present(alert, animated: true)
+	}
+	
+	private func removeColor(with indexPath: IndexPath) {
+		guard indexPath.item < colors.count else { return }
+		
+		colors.remove(at: indexPath.row)
+		
+		if colors.count < 10, let lastCell = mainView.collectionView.cellForItem(at: IndexPath(item: colors.count, section: 0)) as? NewColorCell {
+			lastCell.isHidden = false
+		}
+		
+		mainView.collectionView.reloadData()
+		updateViewColor()
 	}
 }
 
 // MARK: - UIColorPickerDelegate
 extension MainViewController: UIColorPickerViewControllerDelegate {
 	func colorPickerViewController(_ viewController: UIColorPickerViewController, didSelect color: UIColor, continuously: Bool) {
-		let selectedColor = viewController.selectedColor
-		if let indexPath = selectedCellIndexPath, indexPath.item != array.count {
+		if let indexPath = selectedCellIndexPath, indexPath.item < colors.count {
 			let cell = mainView.collectionView.cellForItem(at: indexPath)
-			cell?.backgroundColor = selectedColor
-			array[indexPath.row] = selectedColor
+			cell?.backgroundColor = color
+			colors[indexPath.row] = color
 		}
-		setViewColor()
+		updateViewColor()
 	}
 }
 
@@ -120,37 +124,49 @@ extension MainViewController: UICollectionViewDelegate, UICollectionViewDataSour
 	}
 	
 	func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-		return array.count + 1
+		return min(colors.count + 1, 10)
 	}
 	
 	func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-		if indexPath.item == array.count {
+		if indexPath.item == colors.count {
 			return collectionView.dequeueReusableCell(withReuseIdentifier: "Cell2", for: indexPath) as! NewColorCell
 		} else {
 			let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "Cell", for: indexPath)
-			let longPress = UILongPressGestureRecognizer(target: self, action: #selector(longPressAction))
-			cell.addGestureRecognizer(longPress)
-			cell.clipsToBounds = true
-			cell.layer.cornerRadius = 5
-			cell.layer.borderWidth = 0.5
-			cell.layer.borderColor = UIColor.gray.cgColor
-			cell.backgroundColor = array[indexPath.row]
+			configureColorCell(cell, for: indexPath)
 			return cell
 		}
 	}
 	
+	// MARK: Configure Cell
+	private func configureColorCell(_ cell: UICollectionViewCell, for indexPath: IndexPath) {
+		let longPress = UILongPressGestureRecognizer(target: self, action: #selector(longPressAction))
+		cell.addGestureRecognizer(longPress)
+		cell.clipsToBounds = true
+		cell.layer.cornerRadius = 5
+		cell.layer.borderWidth = 0.5
+		cell.layer.borderColor = UIColor.gray.cgColor
+		cell.backgroundColor = colors[indexPath.row]
+	}
+	
 	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-		let cell = collectionView.cellForItem(at: indexPath)
-		if indexPath.item != array.count {
-			selectedCellIndexPath = indexPath
-			presentColorPicker(cellColor: (cell?.backgroundColor)!)
+		let isLastCell = indexPath.item == colors.count
+		
+		if isLastCell {
+			addNewColor()
 		} else {
-			array.append(UIColor.grayBase)
-			setViewColor()
-			collectionView.reloadData()
-			if array.count == 10 && cell is NewColorCell {
-				cell?.isHidden = true
-			}
+			selectedCellIndexPath = indexPath
+			presentColorPicker(indexPath: indexPath)
+		}
+	}
+	
+	// MARK: Add new color
+	private func addNewColor() {
+		colors.append(UIColor.grayBase)
+		updateViewColor()
+		mainView.collectionView.reloadData()
+		
+		if colors.count == 10, let lastCell = mainView.collectionView.cellForItem(at: IndexPath(item: colors.count, section: 0)) as? NewColorCell {
+			lastCell.isHidden = true
 		}
 	}
 }
